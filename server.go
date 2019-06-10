@@ -46,7 +46,7 @@ func hashError(id string) {
 	tasks[id].Status = internalError
 }
 
-// Горутина, скачивающая файл по id, считающая его хеш и обнавляющая состояние задачи по id
+// Горутина, скачивающая файл по url, считающая его хеш и обнавляющая состояние задачи по id
 func makeHash(url string, id string) {
 	log.Println("==Downloading and encoding resource==")
 	resp, err := http.Get(url)
@@ -76,7 +76,7 @@ func SubmitRouterHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("==SUBMIT request==")
 	// Получаем URL
 	r.ParseForm()
-	url := r.FormValue("url")	// Если параметра url нет или url задан некорректно, задача примет статус "error"
+	url := r.FormValue("url") // Если параметра url нет или url задан некорректно, задача примет статус "error"
 	log.Printf("URL: %v", url)
 
 	// Генерим UUID
@@ -84,7 +84,7 @@ func SubmitRouterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	id := string(out)[:len(string(out))-1]	// Стандартная функция записывает в конец UUID символ '\n'
+	id := string(out)[:len(string(out))-1] // Стандартная функция записывает в конец UUID символ '\n'
 	log.Printf("UUID: %v", id)
 
 	// Сохраняем задачу (статус "running"), отправляем ответ
@@ -115,7 +115,9 @@ func CheckRouterHandler(w http.ResponseWriter, r *http.Request) {
 	//  Ищем id в задачах
 	task, ok := tasks[id]
 	var answer []byte
-	statusStruct := struct { Status string `json:"status"` }{}
+	statusStruct := struct {
+		Status string `json:"status"`
+	}{}
 	if ok {
 		w.WriteHeader(intStatus(task.Status))
 
