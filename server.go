@@ -51,7 +51,7 @@ func makeHash(url string, id string) {
 	log.Println("==Downloading and encoding resource==")
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Printf("Request error: \nURL: %v \nID: %v\nCannot download resource", url, id)
+		log.Printf("Request error. URL: %v; ID: %v. Cannot download resource", url, id)
 		hashError(id)
 		return
 	}
@@ -59,11 +59,10 @@ func makeHash(url string, id string) {
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Request error: \nURL: %v \nID: %v\nCannot read resource", url, id)
+		log.Printf("Request error. URL: %v; ID: %v. Cannot read resource", url, id)
 		hashError(id)
 		return
 	}
-	log.Printf("Beginning of body: %v", string(body)[:100])
 
 	hash := md5.Sum(body)
 	log.Printf("Hash: %x", hash)
