@@ -126,6 +126,7 @@ func CheckRouterHandler(w http.ResponseWriter, r *http.Request) {
 			answer, _ = json.Marshal(statusStruct)
 		}
 	} else {
+		w.WriteHeader(http.StatusNotFound)
 		statusStruct.Status = "not exist"
 		answer, _ = json.Marshal(statusStruct)
 	}
