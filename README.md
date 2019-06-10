@@ -1,11 +1,11 @@
-## MD5 Calculator  
+# MD5 Calculator  
 
-### Установка  
+## Установка и запуск  
 С установленным и настроенным Go.  
 В терминале:  
-* git clone https://github.com/AleksMa/MD5_Calculator.git  
-* cd MD5_Calculator
-* go run server.go  
+* ```git clone https://github.com/AleksMa/MD5_Calculator.git```  
+* ```cd MD5_Calculator```  
+* ```go run server.go```    
 ---
 
 Поскольку сторонние библиотеки не были использованы, 
@@ -13,3 +13,10 @@
 
 Сервер слушает на порту 8000.  
 Пожалуйста, проверьте, свободен ли этот порт.
+
+## Тесты  
+На каждый возможный статус ответа сервера подготовлены go-тесты ( *server_test.go* )  
+Для их запуска необходимо в директории проекта ( *somepath/MD5_Calculator* ) запустить в терминале
+``` go test ```.   
+Перед этим, разумеется, необходимо запустить сам сервер.
+

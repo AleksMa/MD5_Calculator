@@ -24,10 +24,12 @@ type Task struct {
 	Url    string `json:"url"`
 }
 
+// Map, хранящий все полученные задачи ( id -> {hash, status, url} )
 var (
 	tasks = make(map[string]*Task)
 )
 
+// Отображение текстовых статусов задач в коды состояния HTTP
 func intStatus(status string) int {
 	if status == running {
 		return http.StatusAccepted
@@ -39,28 +41,32 @@ func intStatus(status string) int {
 	return http.StatusInternalServerError
 }
 
+// Изменение статуса задачи на "упавшую с ошибкой в процессе выполнения"
 func hashError(id string) {
 	tasks[id].Status = internalError
 }
 
+// Горутина, скачивающая файл по id, считающая его хеш и обнавляющая состояние задачи по id
 func makeHash(url string, id string) {
+	log.Println("==Downloading and encoding resource==")
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Println("Cannot download resource")
+		log.Printf("Request error: \nURL: %v \nID: %v\nCannot download resource", url, id)
 		hashError(id)
 		return
 	}
 	defer resp.Body.Close()
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("Cannot read body")
+		log.Printf("Request error: \nURL: %v \nID: %v\nCannot read resource", url, id)
 		hashError(id)
 		return
 	}
-	log.Println(string(body)[:100])
+	log.Printf("Beginning of body: %v", string(body)[:100])
 
 	hash := md5.Sum(body)
-	log.Printf("Hash: %v\n", hex.EncodeToString(hash[:16]))
+	log.Printf("Hash: %x", hash)
 
 	task := tasks[id]
 	task.Status = done
@@ -68,68 +74,64 @@ func makeHash(url string, id string) {
 }
 
 func SubmitRouterHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("====================POST==========================")
-
+	log.Println("==SUBMIT request==")
 	// Получаем URL
 	r.ParseForm()
-	url := r.FormValue("url")
-	fmt.Println(url)
+	url := r.FormValue("url")	// Если параметра url нет или url задан некорректно, задача примет статус "error"
+	log.Printf("URL: %v", url)
 
-	// Генерим ID
+	// Генерим UUID
 	out, err := exec.Command("uuidgen").Output()
 	if err != nil {
 		log.Fatal(err)
 	}
-	id := string(out)[:len(string(out))-1]
-	fmt.Printf("%s\n", id)
+	id := string(out)[:len(string(out))-1]	// Стандартная функция записывает в конец UUID символ '\n'
+	log.Printf("UUID: %v", id)
 
-	// Сохраняем задачу (running), отправляем ответ
+	// Сохраняем задачу (статус "running"), отправляем ответ
 	tasks[id] = &Task{Url: url, Status: running}
 
 	w.WriteHeader(http.StatusAccepted)
+
+	// Создаем временную структуру, содержащую статус, для записи в json
 	idStruct := struct {
 		Id string `json:"id"`
 	}{id}
+
 	answer, err := json.Marshal(idStruct)
 	w.Write(answer)
 	fmt.Fprintln(w)
 
-	// Скачиваем файл и считаем хэш (в фоне)
+	// Скачиваем файл и считаем хэш (в горутине)
 	go makeHash(url, id)
-
-	fmt.Println("================END=OF=POST=======================")
 }
 
 func CheckRouterHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("====================GET==========================")
+	log.Println("==CHECK request==")
 	r.ParseForm()
+	// При отстуствующем/некорректном параметре позднее получим "not exist"
 	id := r.FormValue("id")
-	fmt.Println(id)
+	log.Printf("ID: %v", id)
 
 	//  Ищем id в задачах
 	task, ok := tasks[id]
-	fmt.Println(task)
 	var answer []byte
+	statusStruct := struct { Status string `json:"status"` }{}
 	if ok {
 		w.WriteHeader(intStatus(task.Status))
 
 		if task.Status == done {
 			answer, _ = json.Marshal(tasks[id])
 		} else {
-			statusStruct := struct {
-				Status string `json:"status"`
-			}{task.Status}
+			statusStruct.Status = task.Status
 			answer, _ = json.Marshal(statusStruct)
 		}
 	} else {
-		statusStruct := struct {
-			Status string `json:"status"`
-		}{"not exist"}
+		statusStruct.Status = "not exist"
 		answer, _ = json.Marshal(statusStruct)
 	}
 	w.Write(answer)
 	fmt.Fprintln(w)
-	fmt.Println("================END=OF=GET=======================")
 }
 func main() {
 
@@ -138,6 +140,6 @@ func main() {
 
 	err := http.ListenAndServe(":8000", nil)
 	if err != nil {
-		fmt.Println("ListenAndServe: ", err)
+		log.Println("ListenAndServe: ", err)
 	}
 }
