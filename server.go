@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,47 +11,71 @@ import (
 	"os/exec"
 )
 
-type Task struct {
-	url    string
-	hash   [16]byte
-	status int
-}
-
 const (
-	notExist = http.StatusNotFound
-	running  = http.StatusAccepted
-	done     = http.StatusOK
-	error    = http.StatusInternalServerError
+	notExist      = "not exist"
+	running       = "running"
+	done          = "done"
+	internalError = "error"
 )
+
+type Task struct {
+	Hash   string `json:"md5"`
+	Status string `json:"status"`
+	Url    string `json:"url"`
+}
 
 var (
-	tasks = make(map[string]Task)
+	tasks = make(map[string]*Task)
 )
 
-func stringStatus(status int) string {
+func intStatus(status string) int {
 	if status == running {
-		return "running"
+		return http.StatusAccepted
 	} else if status == done {
-		return "done"
+		return http.StatusOK
+	} else if status == notExist {
+		return http.StatusNotFound
 	}
-	return "error"
+	return http.StatusInternalServerError
 }
 
-func SubmitResponseHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("====================POST==========================")
-	r.ParseForm()
-	params := r.Form
-	fmt.Println(params)
-	url := params["url"][0]
+func hashError(id string) {
+	tasks[id].Status = internalError
+}
 
-	resp, _ := http.Get(url)
+func makeHash(url string, id string) {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Println("Cannot download resource")
+		hashError(id)
+		return
+	}
 	defer resp.Body.Close()
-	body2, _ := ioutil.ReadAll(resp.Body)
-	outputStream := string(body2)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Cannot read body")
+		hashError(id)
+		return
+	}
+	log.Println(string(body)[:100])
 
-	hash := md5.Sum([]byte(outputStream))
-	fmt.Println(hash)
+	hash := md5.Sum(body)
+	log.Printf("Hash: %v\n", hex.EncodeToString(hash[:16]))
 
+	task := tasks[id]
+	task.Status = done
+	task.Hash = hex.EncodeToString(hash[:16])
+}
+
+func SubmitRouterHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("====================POST==========================")
+
+	// Получаем URL
+	r.ParseForm()
+	url := r.FormValue("url")
+	fmt.Println(url)
+
+	// Генерим ID
 	out, err := exec.Command("uuidgen").Output()
 	if err != nil {
 		log.Fatal(err)
@@ -57,41 +83,61 @@ func SubmitResponseHandler(w http.ResponseWriter, r *http.Request) {
 	id := string(out)[:len(string(out))-1]
 	fmt.Printf("%s\n", id)
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(out)
+	// Сохраняем задачу (running), отправляем ответ
+	tasks[id] = &Task{Url: url, Status: running}
 
-	tasks[id] = Task{url, hash, done}
+	w.WriteHeader(http.StatusAccepted)
+	idStruct := struct {
+		Id string `json:"id"`
+	}{id}
+	answer, err := json.Marshal(idStruct)
+	w.Write(answer)
+	fmt.Fprintln(w)
+
+	// Скачиваем файл и считаем хэш (в фоне)
+	go makeHash(url, id)
+
 	fmt.Println("================END=OF=POST=======================")
 }
 
 func CheckRouterHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("====================GET==========================")
 	r.ParseForm()
-	params := r.Form
-	id := params["id"][0]
+	id := r.FormValue("id")
 	fmt.Println(id)
+
+	//  Ищем id в задачах
 	task, ok := tasks[id]
 	fmt.Println(task)
+	var answer []byte
 	if ok {
-		fmt.Println("NOT ERROR")
-		w.WriteHeader(task.status)
-		fmt.Fprintln(w, stringStatus(task.status))
+		w.WriteHeader(intStatus(task.Status))
+
+		if task.Status == done {
+			answer, _ = json.Marshal(tasks[id])
+		} else {
+			statusStruct := struct {
+				Status string `json:"status"`
+			}{task.Status}
+			answer, _ = json.Marshal(statusStruct)
+		}
 	} else {
-		fmt.Println("ERROR")
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "not exist")
+		statusStruct := struct {
+			Status string `json:"status"`
+		}{"not exist"}
+		answer, _ = json.Marshal(statusStruct)
 	}
+	w.Write(answer)
+	fmt.Fprintln(w)
 	fmt.Println("================END=OF=GET=======================")
 }
 func main() {
 
-	http.HandleFunc("/submit", SubmitResponseHandler)
+	http.HandleFunc("/submit", SubmitRouterHandler)
 	http.HandleFunc("/check", CheckRouterHandler)
 
 	err := http.ListenAndServe(":8000", nil)
-
 	if err != nil {
 		fmt.Println("ListenAndServe: ", err)
 	}
-
 }
