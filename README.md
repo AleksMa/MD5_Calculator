@@ -43,4 +43,8 @@
 *Ответ:* ```{"md5":"8acf67d3ff985922cc057a52b3348e83","status":"done","url":"https://golang.org"}```   
 **HEAD:**   
 *Запрос*: ```curl -I http://localhost:8000/check?id=NotAnUUID```  
-*Ответ:* ```HTTP/1.1 404 Not Found...``` 
+*Ответ:* ```HTTP/1.1 404 Not Found...```   
+
+<p align="center">
+  <img src="https://cdn-images-1.medium.com/max/1200/1*yh90bW8jL4f8pOTZTvbzqw.png" alt="PES"/>
+</p>
