@@ -2,7 +2,7 @@
 
 ## Установка и запуск  
 С установленным и настроенным Go.  
-В терминале:  
+В терминале:  https://www.igneous.io/hs-fs/hubfs/gopher3.png?width=400&height=214&name=gopher3.png
 * ```git clone https://github.com/AleksMa/MD5_Calculator.git```  
 * ```cd MD5_Calculator```  
 * ```go run server.go```    
@@ -44,7 +44,3 @@
 **HEAD:**   
 *Запрос*: ```curl -I http://localhost:8000/check?id=NotAnUUID```  
 *Ответ:* ```HTTP/1.1 404 Not Found...```   
-
-<p align="center">
-  <img src="https://cdn-images-1.medium.com/max/1200/1*yh90bW8jL4f8pOTZTvbzqw.png" alt="PES"/>
-</p>
